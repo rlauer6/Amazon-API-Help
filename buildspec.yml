@@ -1,0 +1,37 @@
+---
+project:
+  description: Amazon::API::Help
+  author:
+    name: Rob Lauer
+    mailto: rclauer@gmail.com
+pm-module: Amazon::API::Help
+min-perl-version: 5.010
+dependencies:
+  requires: requires
+  test-requires: test-requires
+  recommends: recommends
+  suggests: suggests
+path:
+  pm-module: lib
+  exe-files: bin
+  tests: t
+extra-files:
+  - ChangeLog
+  - share:
+      - README.md
+      - botocore-services.api.gz
+      - share/all-services.tt
+      - share/members.tt
+      - share/operation.tt
+      - share/pod_wrapper.tt
+      - share/shape.tt
+
+resources:
+  bugtracker:
+    mailto: rclauer@gmail.com
+    web: https://github.com/rlauer6/Amazon-API-Help/issues
+  homepage: https://github.com/rlauer6/Amazon-API-Help
+  repository:
+    type: git
+    url: git@github.com:rlauer6/Amazon-API-Help.git
+    web: https://github.com/rlauer6/Amazon-API-Help

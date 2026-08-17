@@ -1,0 +1,327 @@
+package Amazon::API::Help;
+
+use strict;
+use warnings;
+
+use Amazon::API::BuildInfo;
+
+use CLI::Simple::Constants qw(:booleans :chars);
+use CLI::Simple::Utils qw(slurp slurp_json choose);
+use Carp;
+use Data::Dumper;
+use English qw(-no_match_vars);
+use File::ShareDir qw(dist_file dist_dir);
+use IO::Uncompress::Gunzip qw(gunzip);
+use List::Util qw(max);
+use Pod::HTML2Pod;
+use Pod::Text;
+use Storable qw(retrieve);
+use Template;
+
+use parent qw(CLI::Simple);
+
+our $VERSION = '@PACKAGE_VERSION@';
+
+caller or exit __PACKAGE__->main();
+
+########################################################################
+sub init {
+########################################################################
+  my ($self) = @_;
+
+  my ($services_file)
+    = grep { -e $_ } ( 'botocore-services.api.gz', dist_file( 'Amazon-API-Help', 'botocore-services.api.gz' ) );
+
+  my $services;
+  gunzip( $services_file, \$services );
+
+  my $service_meta = retrieve( \$services );
+
+  $self->set_services($service_meta);
+
+  my $bv
+    = slurp_json( ( grep { -e $_ } ( 'botocore-version.json', dist_file( 'Amazon-API', 'botocore-version.json' ) ) )[0] );
+  $self->set_provenance( { version => $bv->{version} // 'unknown', commit => $bv->{commit} // 'unknown' } );
+
+  return;
+}
+
+########################################################################
+sub cmd_help {
+########################################################################
+  my ( $self, $init_flag ) = @_;
+
+  return
+    if $init_flag;
+
+  my ( $service_name, $method_or_shape ) = $self->get_args;
+
+  if ($service_name) {
+    my $service_meta = $self->get_services->{$service_name}
+      or die "ERROR: no such service '$service_name'\n";
+
+    if ($method_or_shape) {
+      my $meta = $service_meta->{metadata};
+
+      return $self->_operation_help( $service_name, $service_meta, $method_or_shape )
+        if $meta->{operations}{$method_or_shape};
+
+      return $self->_shape_help( $service_name, $service_meta, $method_or_shape )
+        if $meta->{shapes}{$method_or_shape};
+
+      die "ERROR: '$method_or_shape' is not an operation or shape in service '$service_name'\n";
+    }
+
+    return $self->_service_help( $service_meta, $service_name );
+  }
+
+  my $all = $self->get_services;
+
+  $self->_show_pod(
+    template => 'all-services.tt',
+    stash    => {
+      services => [ sort keys %{$all} ],
+      modules  => [ sort map { $all->{$_}{metadata}{metadata}{perl_module_name} // '(unresolved)' } keys %{$all} ],
+    },
+  );
+
+  return $SUCCESS;
+}
+
+########################################################################
+sub _operation_help {
+########################################################################
+  my ( $self, $service, $service_meta, $operation_name ) = @_;
+
+  my $meta      = $service_meta->{metadata};
+  my $operation = $meta->{operations}{$operation_name}
+    or die "ERROR: no such operation '$operation_name' in service '$service'\n";
+
+  my $shapes = $meta->{shapes};
+
+  my $input_shape  = $operation->{input}  ? $operation->{input}{shape}  : undef;
+  my $output_shape = $operation->{output} ? $operation->{output}{shape} : undef;
+
+  my $input_members  = $input_shape  ? ( $shapes->{$input_shape}{members}  // {} ) : {};
+  my $output_members = $output_shape ? ( $shapes->{$output_shape}{members} // {} ) : {};
+
+  my @errors;
+
+  foreach my $e ( @{ $operation->{errors} // [] } ) {
+    my $name   = $e->{shape};
+    my $eshape = $shapes->{$name} // {};
+    my $detail = $eshape->{error};
+
+    push @errors,
+      {
+      name          => $name,
+      documentation => $eshape->{documentation} // $EMPTY,
+      detail        => $detail
+      ? [ map { { key => $_, value => $detail->{$_} } } sort keys %{$detail} ]
+      : [],
+      };
+  }
+
+  my %seen;
+  my @see_also = sort grep { !$seen{$_}++ }
+    grep {defined} ( $input_shape, $output_shape, map { $_->{shape} } @{ $operation->{errors} // [] } );
+
+  my $http = $operation->{http} // {};
+  $_->{documentation} //= $EMPTY for values %{$input_members}, values %{$output_members};
+  # in the stash:
+  $self->_show_pod(
+    template => 'operation.tt',
+    stash    => {
+      service        => $service,
+      package_name   => $meta->{metadata}{perl_module_name},
+      method         => $operation_name,
+      documentation  => $operation->{documentation} // $EMPTY,
+      input_members  => $input_members,
+      output_members => $output_members,
+      errors         => \@errors,
+      http_method    => $http->{method}     // $EMPTY,
+      request_uri    => $http->{requestUri} // $EMPTY,
+      see_also       => \@see_also,
+      provenance     => $self->get_provenance,
+      package_name   => $meta->{metadata}{perl_module_name} // '(unresolved)',
+    },
+  );
+
+  return $SUCCESS;
+}
+
+########################################################################
+sub _shape_help {
+########################################################################
+  my ( $self, $service, $service_meta, $shape_name ) = @_;
+
+  my $shape = $service_meta->{metadata}{shapes}{$shape_name}
+    or die "ERROR: no such shape '$shape_name' in service '$service'\n";
+
+  my %seen;
+  my @see_also
+    = sort grep { !$seen{$_}++ } ( $shape->{members} ? map { $shape->{members}{$_}{shape} } keys %{ $shape->{members} } : () ),
+    ( $shape->{member} ? $shape->{member}{shape} : () ),
+    ( $shape->{key}    ? $shape->{key}{shape}    : () ),
+    ( $shape->{value}  ? $shape->{value}{shape}  : () );
+
+  my @limits = map { { key => $_, value => $shape->{$_} } }
+    grep { defined $shape->{$_} } qw(min max pattern);
+
+  my $is_structure  = ( $shape->{type} // $EMPTY ) eq 'structure';
+  my $show_synopsis = $is_structure && !( $shape->{members} && $shape->{members}{message} );
+
+  $shape->{documentation} //= $EMPTY;
+  $shape->{members}       //= {} if $is_structure;
+  $_->{documentation}     //= $EMPTY for values %{ $shape->{members} // {} };
+
+  # in the stash:
+  $self->_show_pod(
+    template => 'shape.tt',
+    stash    => {
+      class         => sprintf( 'Amazon::API::Botocore::Shape::%s::%s', $service, $shape_name ),
+      lc_name       => snake_case($shape_name),
+      service       => $service,
+      shape         => $shape,
+      limits        => \@limits,
+      see_also      => \@see_also,
+      provenance    => $self->get_provenance,
+      show_synopsis => $show_synopsis,
+      enum          => [ @{ $shape->{enum} // [] } ],
+    },
+  );
+
+  return $SUCCESS;
+}
+
+########################################################################
+sub _service_help {
+########################################################################
+  my ( $self, $service_meta, $service ) = @_;
+
+  $self->_show_pod(
+    template => 'service.tt',
+    stash    => {
+      service          => $service,
+      documentation    => $service_meta->{metadata}{documentation} // $EMPTY,
+      operations       => [ sort keys %{ $service_meta->{metadata}{operations} } ],
+      botocore_version => $self->get_provenance->{version},
+    },
+  );
+
+  return $SUCCESS;
+}
+
+########################################################################
+sub snake_case {
+########################################################################
+  my ($name) = @_;
+
+  while ( $name =~ s/([[:upper:]])([[:lower:]])/lc("_$1").$2/xsme ) { }
+
+  $name =~ s/^_//xsm;
+  $name =~ s/([[:lower:]])([[:upper:]])/$1_$2/gxsm;
+
+  return $name;
+}
+
+########################################################################
+sub _html2pod {
+########################################################################
+  my ($html) = @_;
+
+  my $pod = Pod::HTML2Pod::convert(
+    a_href  => $TRUE,
+    a_name  => $TRUE,
+    content => $html // $EMPTY,
+  );
+
+  $pod =~ s/^=pod//xsm;
+  $pod =~ s/^=cut//xsm;
+  $pod =~ s/^[#].*$//gxsm;
+
+  $pod =~ s/\A\s+//xsm;  # template owns leading/trailing blank lines
+  $pod =~ s/\s+\z//xsm;
+
+  return $pod;
+}
+
+########################################################################
+sub _show_pod {
+########################################################################
+  my ( $self, %args ) = @_;
+
+  my $tt = $self->_template_engine;
+
+  my $pod = $EMPTY;
+
+  $tt->process( $args{template}, $args{stash}, \$pod )
+    or die sprintf "ERROR: rendering %s: %s\n", $args{template}, $tt->error;
+
+  my $paged;
+
+  if ( $self->get_cli_pager ) {
+    $paged = eval {
+      require IO::Pager;
+      IO::Pager::open( *STDOUT, '|-:utf8', 'Unbuffered' );
+      return $TRUE;
+    };
+  }
+
+  binmode STDOUT, ':encoding(UTF-8)'
+    if !$paged;
+
+  Pod::Text->new->parse_string_document($pod);
+
+  return;
+}
+
+########################################################################
+sub _template_engine {
+########################################################################
+  my ($self) = @_;
+
+  my $tt = $self->get_tt;
+
+  return $tt
+    if $tt;
+
+  my @include_path = grep { -d $_ } ( 'share', eval { dist_dir('Amazon-API-Help') } );
+
+  $tt = Template->new(
+    { INCLUDE_PATH => \@include_path,
+      STRICT       => $TRUE,
+      ENCODING     => 'utf8',
+      FILTERS      => { html2pod => \&_html2pod },
+    }
+  ) or die sprintf "ERROR: could not create template engine: %s\n", Template->error;
+
+  $self->set_tt($tt);
+
+  return $tt;
+}
+
+########################################################################
+sub main {
+########################################################################
+  my %commands = (
+    'help'    => \&cmd_help,
+    'default' => 'help',
+  );
+
+  my @option_specs = qw(
+    botocore-path=s
+    cli-pager!
+  );
+
+  my $cli = __PACKAGE__->new(
+    commands        => \%commands,
+    option_specs    => \@option_specs,
+    extra_options   => [qw(services tt provenance)],
+    default_options => { cli_pager => 1 },
+  );
+
+  return $cli->run();
+}
+
+1;

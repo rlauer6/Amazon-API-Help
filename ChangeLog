@@ -1,0 +1,37 @@
+Mon Aug 17 08:11:22  Rob Lauer  rclauer@gmail.com
+
+	[1.0.0]:
+	* .gitignore: new
+	* .includes/bash-completion.mk: new
+	* .includes/git.mk: new
+	* .includes/help.mk: new
+	* .includes/local.mk: new
+	* .includes/modulino.mk: new
+	* .includes/perl.mk: new
+	* .includes/release-notes.mk: new
+	* .includes/update.mk: new
+	* .includes/upgrade.mk: new
+	* .includes/version.mk: new
+	* ChangeLog: new
+	* Makefile: new
+	* README.md: new
+	* VERSION: new
+	* bin/amzn-api-help.in: new
+	* botocore.mk: new
+	* build-mirrors: new
+	* buildspec.yml: new
+	* config.mk: new
+	* cpanfile: new
+	* lib/Amazon/API/Help.pm.in: new
+	* project.mk: new
+	* recommends: new
+	* requires: new
+	* share/all-services.tt: new
+	* share/members.tt: new
+	* share/operation.tt: new
+	* share/pod_wrapper.tt: new
+	* share/service.tt: new
+	* share/shape.tt: new
+	* suggests: new
+	* t/00-amazon-api-help.t: new
+	* test-requires: new

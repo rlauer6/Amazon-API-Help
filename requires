@@ -1,0 +1,7 @@
+Amazon::API::BuildInfo 2.5.1
+CLI::Simple 2.2.1
+CLI::Simple::Constants 2.2.1
+CLI::Simple::Utils 2.2.1
+File::ShareDir 1.118
+Pod::HTML2Pod 4.05
+Template 3.102
