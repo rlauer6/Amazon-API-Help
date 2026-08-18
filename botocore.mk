@@ -12,7 +12,6 @@ $(BOTOCORE_PATH):
 	$(NO_ECHO)botocore_env=$$(mktemp); trap 'rm -f $$botcore_env' EXIT; \
 	perl -MAmazon::API::BuildInfo -e 'print sprintf qq{BOTOCORE_VERSION=%s\nBOTOCORE_COMMIT=%s\n}, Amazon::API::BuildInfo->botocore_version();' > $$botocore_env; \
 	source $$botocore_env; \
-	echo $$BOTOCORE_VERSION; \
 	mkdir -p $@; \
 	git clone --branch $$BOTOCORE_VERSION --depth=1 $(BOTOCORE_REPO) $@ || true
 
@@ -20,5 +19,5 @@ $(BOTOCORE_PATH):
 botocore-metadata.api module-names.json &: \
     $(BOTOCORE_STATE) \
     $(CREATE_MODULE_NAMES) | $(BOTOCORE_PATH)
-	$(NO_ECHO)PERL5LIB=$(PERL5LIBDIR):$(BUILD_DIR)/local/lib/perl5 $(CREATE_MODULE_NAMES) \
-            -b $(BOTOCORE_PATH) create
+	$(NO_ECHO)PERL5LIB=$(PERL5LIBDIR):$(BUILD_DIR)/local/lib/perl5 \
+	  $(AMAZON_API) -b $(BOTOCORE_PATH) create-module-names

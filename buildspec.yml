@@ -24,6 +24,7 @@ extra-files:
       - share/members.tt
       - share/operation.tt
       - share/pod_wrapper.tt
+      - share/service.tt
       - share/shape.tt
 
 resources:

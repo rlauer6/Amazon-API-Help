@@ -1,3 +1,29 @@
+Tue Aug 18 09:52:41 2026  Rob Lauer  <rclauer@gmail.com>
+
+	[1.0.1]:
+	* VERSION: bump
+	* README.md: generated
+	* botocore.mk
+	- use refactored amzn-api
+	* buildspec.yml: +service.tt
+	* lib/Amazon/API/Help.pm.in
+	- added pod
+	(init)
+	- allow for dropping 'help' command
+	(cmd_help)
+	- usage if --help
+	- make shape take precendence, but allow override
+	(_operation_help)
+	- remove duplicate package_name
+	- make dist_dir lone INCLUDE_PATH
+	* project.mk
+	- removed CREATE_MODULE_NAMES, BUILD_BOTO_SERVICES
+	- added AMAZON_API
+	(cmd_dump_service): new
+	(main)
+	- + dump-service
+	- new options --help, --shape
+
 Mon Aug 17 08:11:22  Rob Lauer  rclauer@gmail.com
 
 	[1.0.0]:

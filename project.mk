@@ -1,6 +1,5 @@
 BUILD_DIR           ?= $(shell pwd)
-BUILD_BOTO_SERVICES = $(shell command -v build-boto-services)
-CREATE_MODULE_NAMES = $(shell command -v amzn-api-module-names)
+AMAZON_API          := $(shell command -v amzn-api)
 PERL5LIBDIR         = $(PERL5LIB)
 
 include botocore.mk
