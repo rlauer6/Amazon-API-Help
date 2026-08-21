@@ -11,7 +11,7 @@ use Data::Dumper;
 use English qw(-no_match_vars);
 use File::ShareDir qw(dist_file dist_dir);
 use IO::Uncompress::Gunzip qw(gunzip);
-use List::Util qw(max);
+use List::Util qw(max none);
 use Pod::HTML2Pod;
 use Pod::Text;
 use Storable qw(retrieve);
@@ -30,24 +30,36 @@ sub init {
 
   my $command = $self->command;
 
-  if ( $command ne 'help' ) {
+  if ( none { $command eq $_ } keys %{ $self->commands } ) {
     $self->set_args( [ $command, $self->get_args ] );
     $self->command('help');
   }
 
-  my ($services_file)
-    = grep { -e $_ } ( 'botocore-services.api.gz', dist_file( 'Amazon-API-Help', 'botocore-services.api.gz' ) );
+  if ( $self->command eq 'help' ) {
 
-  my $services;
-  gunzip( $services_file, \$services );
+    my @candidates = ( 'botocore-services.api.gz', dist_file( 'Amazon-API-Help', 'botocore-services.api.gz' ) );
 
-  my $service_meta = retrieve( \$services );
+    my ($services_file) = grep { defined $_ && -e $_ } @candidates;
 
-  $self->set_services($service_meta);
+    my $services;
+    gunzip( $services_file, \$services );
 
-  my $bv
-    = slurp_json( ( grep { -e $_ } ( 'botocore-version.json', dist_file( 'Amazon-API', 'botocore-version.json' ) ) )[0] );
-  $self->set_provenance( { version => $bv->{version} // 'unknown', commit => $bv->{commit} // 'unknown' } );
+    my $service_meta = retrieve( \$services );
+
+    $self->set_services($service_meta);
+  }
+
+  my $version = Amazon::API::BuildInfo->version();
+
+  my $botocore_version = $version->{botocore_version};
+
+  $self->set_version($version);
+
+  $self->set_provenance(
+    { version => $botocore_version->{version} // 'unknown',
+      commit  => $botocore_version->{commit}  // 'unknown'
+    }
+  );
 
   return;
 }
@@ -340,11 +352,32 @@ sub cmd_dump_service {
 }
 
 ########################################################################
+sub cmd_version {
+########################################################################
+  my ($self) = @_;
+
+  my $version = Amazon::API::BuildInfo->version();
+
+  require Text::ASCIITable;
+
+  my $t = Text::ASCIITable->new( { headingText => 'Amazon::API Version Info' } );
+
+  $t->setCols( q{}, qw(Version Commit) );
+  $t->addRow( 'Amazon::API', $version->{version},                     $version->{commit} );
+  $t->addRow( 'Botocore',    $version->{botocore_version}->{version}, $version->{botocore_version}->{commit} );
+
+  print {*STDOUT} $t;
+
+  return $SUCCESS;
+}
+
+########################################################################
 sub main {
 ########################################################################
   my %commands = (
     'dump-service' => \&cmd_dump_service,
     'help'         => \&cmd_help,
+    'version'      => \&cmd_version,
     'default'      => 'help',
   );
 
@@ -357,7 +390,7 @@ sub main {
   my $cli = __PACKAGE__->new(
     commands         => \%commands,
     option_specs     => \@option_specs,
-    extra_options    => [qw(services tt provenance)],
+    extra_options    => [qw(services tt provenance version)],
     default_options  => { cli_pager => 1 },
     validate_command => $FALSE,
   );
@@ -456,6 +489,10 @@ I<Note: 'help' is optional in all examples. C<amzn-api-help sts> is also valid f
 Dump service metadata as JSON.
 
  amzn-api-help dump-service sts
+
+=item version
+
+Display the L<Amazon::API> and Botocore versions.
 
 =back
 

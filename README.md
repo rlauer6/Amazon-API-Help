@@ -89,6 +89,10 @@ objects must be immutabilized "at the cost of startup time".
 
         amzn-api-help dump-service sts
 
+- version
+
+    Display the [Amazon::API](https://metacpan.org/pod/Amazon%3A%3AAPI) and Botocore versions.
+
 ## Options
 
     --help, -h       This help
@@ -97,7 +101,7 @@ objects must be immutabilized "at the cost of startup time".
 
 # VERSION
 
-This documentation refers to version 1.0.1
+This documentation refers to version 1.0.2
 
 # AUTHOR
 

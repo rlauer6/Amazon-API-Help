@@ -1,3 +1,16 @@
+Fri Aug 21 08:37:02 2026  Rob Lauer  <rclauer@gmail.com>
+
+	[1.0.2]:
+	* .includes/perl.mk: updated by CPAN::Maker::Bootstrapper
+	* VERSION: bump
+	* lib/Amazon/API/Help.pm.in
+	(cmd_version): new
+	(init)
+	- don't load metadata if command is not help
+	- get botocore version from BuildInfo
+	* cpanfile: +Text::ASCIITable
+	* requires: likewise
+
 Tue Aug 18 09:52:41 2026  Rob Lauer  <rclauer@gmail.com>
 
 	[1.0.1]:

@@ -5,3 +5,4 @@ CLI::Simple::Utils 2.2.1
 File::ShareDir 1.118
 Pod::HTML2Pod 4.05
 Template 3.102
+Text::ASCIITable 0.22
