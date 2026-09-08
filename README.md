@@ -101,7 +101,7 @@ objects must be immutabilized "at the cost of startup time".
 
 # VERSION
 
-This documentation refers to version 1.0.2
+This documentation refers to version 1.0.3
 
 # AUTHOR
 

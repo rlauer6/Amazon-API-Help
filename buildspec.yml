@@ -17,6 +17,9 @@ path:
   tests: t
 extra-files:
   - ChangeLog
+  - NOTICE
+  - NOTICE.botocore
+  - LICENSE.botocore
   - share:
       - README.md
       - botocore-services.api.gz

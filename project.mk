@@ -16,7 +16,7 @@ botocore-services.api.gz: local-module-names.json botocore-metadata.api | $(BOTO
 	$(NO_ECHO)cp botocore-metadata.api $$(basename $@ .gz); \
 	gzip -f $$(basename $@ .gz)
 
-DEPS += botocore-services.api.gz
+DEPS += botocore-services.api.gz LICENSE.botocore NOTICE.botocore NOTICE
 
 .PHONY: install
 install: $(TARBALL)
@@ -26,4 +26,20 @@ install: $(TARBALL)
 uninstall:
 	cpanm -n -l $(HOME) --uninstall $(MODULE_NAME)
 
-CLEANFILES += botocore-services.api.gz
+botocore-version.json:
+	$(NO_ECHO)botocore_version="$$(perl -MFile::ShareDir=dist_file -e 'print dist_file(q{Amazon-API}, q{botocore-version.json});')"; \
+	cp $$botocore_version $@
+
+NOTICE: NOTICE.in botocore-version.json
+	$(NO_ECHO)BOTOCORE_VERSION=$$(cat botocore-version.json | perl -MJSON=decode_json -n0e '$$v=decode_json($$_); print "$$v->{version}";'); \
+	BOTOCORE_COMMIT=$$(cat botocore-version.json |perl -MJSON=decode_json -n0e '$$v=decode_json($$_); print "$$v->{commit}";'); \
+        export BOTOCORE_COMMIT BOTOCORE_VERSION; \
+	$(BOOTSTRAPPER) resolve-vars $< > $@
+
+LICENSE.botocore: $(BOTOCORE_PATH)/LICENSE.txt | $(BOTOCORE_PATH)
+	$(NO_ECHO)cp $< $@
+
+NOTICE.botocore: $(BOTOCORE_PATH)/NOTICE | $(BOTOCORE_PATH)
+	$(NO_ECHO)cp $< $@
+
+CLEANFILES += botocore-services.api.gz NOTICE NOTICE.botocore LICENSE.botocore
